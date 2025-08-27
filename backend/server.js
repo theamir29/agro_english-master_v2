@@ -8,7 +8,7 @@ const multer = require("multer");
 const csv = require("csv-parser");
 const fs = require("fs");
 const path = require("path");
-const rateLimit = require("express-rate-limit");
+// const rateLimit = require("express-rate-limit"); // ВРЕМЕННО ОТКЛЮЧЕНО
 require("dotenv").config();
 
 // ========== EXPRESS APP SETUP ==========
@@ -24,12 +24,15 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting
+// RATE LIMITING ВРЕМЕННО ОТКЛЮЧЕНО ДЛЯ РАЗРАБОТКИ
+// Раскомментируйте для продакшена
+/*
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
 });
 app.use("/api/", limiter);
+*/
 
 // ========== MONGODB SCHEMAS ==========
 
@@ -246,7 +249,11 @@ const authenticateAdmin = async (req, res, next) => {
       return res.status(401).json({ error: "No token provided" });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET ||
+        "your_super_secret_jwt_key_change_this_in_production"
+    );
     const admin = await Admin.findById(decoded.id);
 
     if (!admin) {
@@ -596,10 +603,13 @@ app.post("/api/admin/login", async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    console.log("Login attempt for username:", username); // Debug log
+
     // Find admin
     const admin = await Admin.findOne({ username });
 
     if (!admin) {
+      console.log("Admin not found"); // Debug log
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
@@ -607,6 +617,7 @@ app.post("/api/admin/login", async (req, res) => {
     const isMatch = await bcrypt.compare(password, admin.password);
 
     if (!isMatch) {
+      console.log("Password mismatch"); // Debug log
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
@@ -617,12 +628,15 @@ app.post("/api/admin/login", async (req, res) => {
     // Generate token
     const token = jwt.sign(
       { id: admin._id, username: admin.username },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET ||
+        "your_super_secret_jwt_key_change_this_in_production",
       { expiresIn: process.env.JWT_EXPIRE || "30d" }
     );
 
     // Log activity
     await logActivity("admin_login", "admin", admin._id, admin.username, req);
+
+    console.log("Login successful, token generated"); // Debug log
 
     res.json({
       token,
@@ -633,6 +647,7 @@ app.post("/api/admin/login", async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("Login error:", error); // Debug log
     res.status(500).json({ error: error.message });
   }
 });
@@ -1033,6 +1048,7 @@ mongoose
   )
   .then(async () => {
     console.log("✅ MongoDB connected successfully");
+    console.log("⚠️  RATE LIMITING IS DISABLED FOR DEVELOPMENT!");
 
     // Create default admin if not exists
     const adminCount = await Admin.countDocuments();
@@ -1055,6 +1071,7 @@ mongoose
     app.listen(PORT, () => {
       console.log(`✅ Server running on port ${PORT}`);
       console.log(`📍 API URL: http://localhost:${PORT}/api`);
+      console.log(`🔧 Environment: ${process.env.NODE_ENV || "development"}`);
     });
   })
   .catch((error) => {

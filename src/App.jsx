@@ -158,29 +158,37 @@ export const useTranslation = () => {
 };
 
 export const useAuth = () => {
-  const [isAdmin, setIsAdmin] = useLocalStorage("isAdmin", false);
-  const [adminToken, setAdminToken] = useLocalStorage("adminToken", null);
+  // Инициализация состояния из localStorage
+  const [isAdmin, setIsAdmin] = useState(() => {
+    const token = localStorage.getItem("adminToken");
+    const adminFlag = localStorage.getItem("isAdmin") === "true";
+    return !!(token && adminFlag);
+  });
 
   const login = async (username, password) => {
     try {
       const response = await api.adminLogin(username, password);
       if (response.token) {
-        setAdminToken(response.token);
+        // Сохраняем в localStorage (уже делается в api.adminLogin)
+        // Обновляем локальное состояние
         setIsAdmin(true);
         return { success: true };
       }
+      return { success: false, error: "Login failed" };
     } catch (error) {
-      return { success: false, error: error.message };
+      console.error("Login error:", error);
+      return { success: false, error: error.message || "Login failed" };
     }
   };
 
   const logout = () => {
+    // Очищаем localStorage
     api.adminLogout();
-    setAdminToken(null);
+    // Обновляем локальное состояние
     setIsAdmin(false);
   };
 
-  return { isAdmin, login, logout };
+  return { isAdmin, setIsAdmin, login, logout };
 };
 
 // ========== ГЛАВНЫЙ КОМПОНЕНТ ==========
@@ -188,33 +196,42 @@ export const useAuth = () => {
 const App = () => {
   const { currentPath, navigate } = useRouter();
   const { t, language, setLanguage } = useTranslation();
-  const { isAdmin, login, logout } = useAuth();
+  const { isAdmin, setIsAdmin, login, logout } = useAuth();
   const [globalToast, setGlobalToast] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Проверка авторизации при загрузке
+  // Проверка авторизации при загрузке (один раз)
   useEffect(() => {
-    const checkAuthStatus = async () => {
-      if (localStorage.getItem("adminToken")) {
-        try {
-          await api.checkAuth();
-        } catch (error) {
-          logout();
-          if (currentPath.startsWith("/admin")) {
-            navigate("/");
-          }
-        }
+    // Простая проверка localStorage без запросов к серверу
+    const checkStoredAuth = () => {
+      const token = localStorage.getItem("adminToken");
+      const adminFlag = localStorage.getItem("isAdmin") === "true";
+
+      if (token && adminFlag) {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
       }
+      setAuthChecked(true);
     };
-    checkAuthStatus();
-  }, []);
+
+    checkStoredAuth();
+  }, [setIsAdmin]);
 
   // Обработка логина
   const handleAdminLogin = async (username, password) => {
-    const result = await login(username, password);
-    if (result.success) {
-      navigate("/admin");
+    try {
+      const result = await login(username, password);
+      if (result.success) {
+        // Успешный вход - переходим в админку
+        navigate("/admin");
+        setGlobalToast({ message: "Login successful", type: "success" });
+      }
+      return result;
+    } catch (error) {
+      console.error("Login error:", error);
+      return { success: false, error: error.message };
     }
-    return result;
   };
 
   // Обработка выхода
@@ -226,28 +243,28 @@ const App = () => {
 
   // Рендер страницы на основе пути
   const renderPage = () => {
-    // Админ страницы
+    // Для админских страниц проверяем авторизацию
     if (currentPath.startsWith("/admin")) {
+      // Если не авторизован, показываем форму входа
       if (!isAdmin) {
         return <AdminLogin onLogin={handleAdminLogin} t={t} />;
       }
 
-      // Подстраницы админ панели
-      if (currentPath === "/admin/terms") {
-        return <AdminTerms t={t} navigate={navigate} />;
+      // Рендерим соответствующую админскую страницу
+      switch (currentPath) {
+        case "/admin":
+          return <AdminDashboard navigate={navigate} t={t} />;
+        case "/admin/terms":
+          return <AdminTerms t={t} navigate={navigate} />;
+        case "/admin/themes":
+          return <AdminThemes t={t} navigate={navigate} />;
+        case "/admin/import":
+          return <AdminImport t={t} navigate={navigate} />;
+        case "/admin/stats":
+          return <AdminStats t={t} navigate={navigate} />;
+        default:
+          return <AdminDashboard navigate={navigate} t={t} />;
       }
-      if (currentPath === "/admin/themes") {
-        return <AdminThemes t={t} navigate={navigate} />;
-      }
-      if (currentPath === "/admin/import") {
-        return <AdminImport t={t} navigate={navigate} />;
-      }
-      if (currentPath === "/admin/stats") {
-        return <AdminStats t={t} navigate={navigate} />;
-      }
-
-      // Главная админ панель
-      return <AdminDashboard navigate={navigate} t={t} />;
     }
 
     // Публичные страницы
@@ -267,8 +284,21 @@ const App = () => {
     }
   };
 
+  // Определяем, показывать ли навигацию и футер
   const showNavigation = !(currentPath === "/admin" && !isAdmin);
   const showFooter = !currentPath.startsWith("/admin");
+
+  // Если авторизация еще не проверена, показываем загрузку
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

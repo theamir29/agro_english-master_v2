@@ -1,6 +1,7 @@
 import axios from "axios";
 
-const API_URL = "/api";
+// ВАЖНО: Используем правильный порт для бэкенда
+const API_URL = "http://localhost:5000/api";
 
 // Создаем axios instance
 const api = axios.create({
@@ -11,13 +12,35 @@ const api = axios.create({
 });
 
 // Добавляем токен в каждый запрос если есть
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("adminToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("adminToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
+
+// Обработка ответов и ошибок
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Если токен недействителен, очищаем localStorage
+      localStorage.removeItem("adminToken");
+      localStorage.removeItem("isAdmin");
+      // Перенаправляем на страницу логина только если мы в админке
+      if (window.location.pathname.startsWith("/admin")) {
+        window.location.href = "/admin";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // ========== ТЕРМИНЫ ==========
 
@@ -85,54 +108,76 @@ export const bulkImportTerms = async (file) => {
   }
 };
 
-// ========== КАТЕГОРИИ ==========
+// ========== ТЕМЫ (THEMES) ==========
 
-export const getCategories = async () => {
+export const getThemes = async () => {
   try {
-    const response = await api.get("/categories");
+    const response = await api.get("/themes");
     return response.data;
   } catch (error) {
-    console.error("Error fetching categories:", error);
+    console.error("Error fetching themes:", error);
+    return [];
+  }
+};
+
+export const createTheme = async (data) => {
+  try {
+    const response = await api.post("/admin/themes", data);
+    return response.data;
+  } catch (error) {
+    console.error("Error creating theme:", error);
     throw error;
   }
+};
+
+export const updateTheme = async (id, data) => {
+  try {
+    const response = await api.put(`/admin/themes/${id}`, data);
+    return response.data;
+  } catch (error) {
+    console.error("Error updating theme:", error);
+    throw error;
+  }
+};
+
+export const deleteTheme = async (id) => {
+  try {
+    const response = await api.delete(`/admin/themes/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting theme:", error);
+    throw error;
+  }
+};
+
+// ========== КАТЕГОРИИ (для обратной совместимости) ==========
+
+export const getCategories = async () => {
+  // Используем themes вместо categories
+  return getThemes();
 };
 
 export const createCategory = async (data) => {
-  try {
-    const response = await api.post("/admin/categories", data);
-    return response.data;
-  } catch (error) {
-    console.error("Error creating category:", error);
-    throw error;
-  }
+  // Перенаправляем на themes
+  return createTheme(data);
 };
 
 export const updateCategory = async (id, data) => {
-  try {
-    const response = await api.put(`/admin/categories/${id}`, data);
-    return response.data;
-  } catch (error) {
-    console.error("Error updating category:", error);
-    throw error;
-  }
+  // Перенаправляем на themes
+  return updateTheme(id, data);
 };
 
 export const deleteCategory = async (id) => {
-  try {
-    const response = await api.delete(`/admin/categories/${id}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error deleting category:", error);
-    throw error;
-  }
+  // Перенаправляем на themes
+  return deleteTheme(id);
 };
 
 // ========== ТЕСТЫ ==========
 
-export const getQuizQuestions = async (type, category, count = 10) => {
+export const getQuizQuestions = async (type, theme, count = 10) => {
   try {
     const response = await api.get("/quiz", {
-      params: { type, category, count },
+      params: { type, theme, count },
     });
     return response.data;
   } catch (error) {
@@ -143,6 +188,12 @@ export const getQuizQuestions = async (type, category, count = 10) => {
 
 export const submitQuizResult = async (data) => {
   try {
+    // Генерируем session_id если его нет
+    if (!data.session_id) {
+      data.session_id = `user_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+    }
     const response = await api.post("/quiz/result", data);
     return response.data;
   } catch (error) {
@@ -153,17 +204,23 @@ export const submitQuizResult = async (data) => {
 
 export const getQuizHistory = async () => {
   try {
-    const response = await api.get("/quiz/history");
+    const sessionId = localStorage.getItem("sessionId") || "default";
+    const response = await api.get("/quiz/history", {
+      params: { session_id: sessionId },
+    });
     return response.data;
   } catch (error) {
     console.error("Error fetching quiz history:", error);
-    throw error;
+    return [];
   }
 };
 
 export const getQuizStats = async () => {
   try {
-    const response = await api.get("/quiz/stats");
+    const sessionId = localStorage.getItem("sessionId") || "default";
+    const response = await api.get("/quiz/stats", {
+      params: { session_id: sessionId },
+    });
     return response.data;
   } catch (error) {
     console.error("Error fetching quiz stats:", error);
@@ -173,12 +230,16 @@ export const getQuizStats = async () => {
 
 // ========== АДМИН АВТОРИЗАЦИЯ ==========
 
+// Дебаунс для предотвращения множественных вызовов
+let authCheckPromise = null;
+
 export const adminLogin = async (username, password) => {
   try {
     const response = await api.post("/admin/login", { username, password });
     if (response.data.token) {
       localStorage.setItem("adminToken", response.data.token);
       localStorage.setItem("isAdmin", "true");
+      localStorage.setItem("adminData", JSON.stringify(response.data.admin));
     }
     return response.data;
   } catch (error) {
@@ -190,18 +251,44 @@ export const adminLogin = async (username, password) => {
 export const adminLogout = () => {
   localStorage.removeItem("adminToken");
   localStorage.removeItem("isAdmin");
+  localStorage.removeItem("adminData");
+  authCheckPromise = null;
 };
 
 export const checkAuth = async () => {
-  try {
-    const response = await api.get("/admin/verify");
-    return response.data;
-  } catch (error) {
-    console.error("Auth check failed:", error);
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("isAdmin");
-    throw error;
+  // Если уже есть запрос в процессе, возвращаем тот же промис
+  if (authCheckPromise) {
+    return authCheckPromise;
   }
+
+  authCheckPromise = (async () => {
+    try {
+      const token = localStorage.getItem("adminToken");
+      if (!token) {
+        throw new Error("No token found");
+      }
+
+      const response = await api.get("/admin/verify");
+      if (response.data.valid) {
+        localStorage.setItem("isAdmin", "true");
+        localStorage.setItem("adminData", JSON.stringify(response.data.admin));
+      }
+      authCheckPromise = null;
+      return response.data;
+    } catch (error) {
+      console.error("Auth check failed:", error);
+      // Очищаем данные если токен недействителен
+      if (error.response?.status === 401) {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("isAdmin");
+        localStorage.removeItem("adminData");
+      }
+      authCheckPromise = null;
+      throw error;
+    }
+  })();
+
+  return authCheckPromise;
 };
 
 // ========== СТАТИСТИКА ==========
@@ -212,7 +299,17 @@ export const getAdminStats = async () => {
     return response.data;
   } catch (error) {
     console.error("Error fetching admin stats:", error);
-    throw error;
+    // Возвращаем дефолтные значения при ошибке
+    return {
+      data: {
+        totalTerms: 0,
+        totalThemes: 0,
+        totalQuizzes: 0,
+        activeUsers: 0,
+        recentActivity: [],
+        dailyQuizzes: [],
+      },
+    };
   }
 };
 
@@ -222,7 +319,7 @@ export const getPopularTerms = async () => {
     return response.data;
   } catch (error) {
     console.error("Error fetching popular terms:", error);
-    throw error;
+    return [];
   }
 };
 
@@ -232,7 +329,11 @@ export const getSearchAnalytics = async () => {
     return response.data;
   } catch (error) {
     console.error("Error fetching search analytics:", error);
-    throw error;
+    return {
+      popularTerms: [],
+      themeStats: [],
+      quizTypeStats: [],
+    };
   }
 };
 
@@ -269,5 +370,13 @@ export const toggleFavoriteTerm = (termId) => {
   localStorage.setItem("favoriteTerms", JSON.stringify(favorites));
   return favorites;
 };
+
+// Генерируем или получаем session ID для пользователя
+if (!localStorage.getItem("sessionId")) {
+  localStorage.setItem(
+    "sessionId",
+    `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  );
+}
 
 export default api;
