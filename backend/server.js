@@ -8,7 +8,6 @@ const multer = require("multer");
 const csv = require("csv-parser");
 const fs = require("fs");
 const path = require("path");
-// const rateLimit = require("express-rate-limit"); // ВРЕМЕННО ОТКЛЮЧЕНО
 require("dotenv").config();
 
 // ========== EXPRESS APP SETUP ==========
@@ -17,22 +16,12 @@ const app = express();
 // ========== MIDDLEWARE ==========
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:5173"], // Vite default port
+    origin: ["http://localhost:3000", "http://localhost:5173"],
     credentials: true,
   })
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// RATE LIMITING ВРЕМЕННО ОТКЛЮЧЕНО ДЛЯ РАЗРАБОТКИ
-// Раскомментируйте для продакшена
-/*
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-});
-app.use("/api/", limiter);
-*/
 
 // ========== MONGODB SCHEMAS ==========
 
@@ -217,15 +206,8 @@ const QuizResult = mongoose.model("QuizResult", quizResultSchema);
 const Admin = mongoose.model("Admin", adminSchema);
 const Activity = mongoose.model("Activity", activitySchema);
 
-// ========== MULTER SETUP FOR FILE UPLOADS ==========
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
-});
+// ========== MULTER SETUP - БЕЗ СОХРАНЕНИЯ НА ДИСК ==========
+const storage = multer.memoryStorage(); // Используем память вместо диска
 
 const upload = multer({
   storage: storage,
@@ -667,10 +649,15 @@ app.get("/api/admin/verify", authenticateAdmin, (req, res) => {
 // Create new term (admin only)
 app.post("/api/admin/terms", authenticateAdmin, async (req, res) => {
   try {
-    const term = await Term.create({
+    // Установим пустые значения для definition если их нет
+    const termData = {
       ...req.body,
+      definition_en: req.body.definition_en || "No definition provided",
+      definition_kaa: req.body.definition_kaa || "",
       created_by: req.admin.username,
-    });
+    };
+
+    const term = await Term.create(termData);
 
     // Update theme count
     await Theme.updateOne(
@@ -768,7 +755,7 @@ app.delete("/api/admin/terms/:id", authenticateAdmin, async (req, res) => {
   }
 });
 
-// Bulk import terms from CSV (admin only)
+// УПРОЩЕННЫЙ ИМПОРТ - Bulk import terms from CSV (admin only)
 app.post(
   "/api/admin/terms/import",
   authenticateAdmin,
@@ -784,73 +771,112 @@ app.post(
       let imported = 0;
       let failed = 0;
 
-      // Parse CSV file
-      fs.createReadStream(req.file.path)
-        .pipe(csv())
-        .on("data", async (data) => {
-          try {
-            // Validate required fields
-            if (!data.term_kaa || !data.term_en || !data.theme) {
-              errors.push({ row: data, error: "Missing required fields" });
-              failed++;
-              return;
-            }
+      // Парсим CSV из памяти (buffer)
+      const csvContent = req.file.buffer.toString("utf-8");
+      const lines = csvContent.split("\n").filter((line) => line.trim());
 
-            // Create term
-            const term = await Term.create({
-              term_kaa: data.term_kaa.trim(),
-              term_en: data.term_en.trim(),
-              definition_en: data.definition_en || "",
-              definition_kaa: data.definition_kaa || "",
-              theme: data.theme.trim(),
-              created_by: req.admin.username,
-            });
+      // Проверяем заголовки
+      const headers = lines[0]
+        .toLowerCase()
+        .split(",")
+        .map((h) => h.trim());
+      const requiredHeaders = ["term_kaa", "term_en", "theme"];
 
-            results.push(term);
-            imported++;
-          } catch (error) {
-            errors.push({ row: data, error: error.message });
-            failed++;
-          }
-        })
-        .on("end", async () => {
-          // Delete uploaded file
-          fs.unlinkSync(req.file.path);
+      const hasRequiredHeaders = requiredHeaders.every((h) =>
+        headers.some(
+          (header) => header.includes(h.replace("_", "")) || header === h
+        )
+      );
 
-          // Update theme counts
-          const themes = await Theme.find();
-          for (let theme of themes) {
-            const count = await Term.countDocuments({
-              theme: theme.name_en,
-            });
-            theme.terms_count = count;
-            await theme.save();
-          }
-
-          // Log activity
-          await logActivity(
-            "terms_imported",
-            "import",
-            null,
-            req.admin.username,
-            req
-          );
-
-          res.json({
-            success: true,
-            imported,
-            failed,
-            errors: errors.slice(0, 10), // Return first 10 errors
-          });
-        })
-        .on("error", (error) => {
-          fs.unlinkSync(req.file.path);
-          res.status(500).json({ error: error.message });
+      if (!hasRequiredHeaders) {
+        return res.status(400).json({
+          error:
+            "Invalid CSV format. Required columns: term_kaa, term_en, theme",
         });
-    } catch (error) {
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
       }
+
+      // Обрабатываем каждую строку
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        // Простой парсинг CSV строки
+        const values = line
+          .split(",")
+          .map((v) => v.trim().replace(/^["']|["']$/g, ""));
+
+        if (values.length < 3) {
+          errors.push({ row: i + 1, error: "Not enough columns" });
+          failed++;
+          continue;
+        }
+
+        const termData = {
+          term_kaa: values[0],
+          term_en: values[1],
+          theme: values[2],
+          definition_en: "No definition provided", // Дефолтное значение
+          definition_kaa: "",
+          created_by: req.admin.username,
+        };
+
+        // Валидация
+        if (!termData.term_kaa || !termData.term_en || !termData.theme) {
+          errors.push({ row: i + 1, error: "Missing required fields" });
+          failed++;
+          continue;
+        }
+
+        try {
+          // Проверяем, существует ли тема
+          const themeExists = await Theme.findOne({ name_en: termData.theme });
+          if (!themeExists) {
+            // Создаем тему если её нет
+            await Theme.create({
+              name_en: termData.theme,
+              name_kaa: termData.theme, // Используем то же название временно
+              description: "Auto-created during import",
+            });
+          }
+
+          // Создаем термин
+          const term = await Term.create(termData);
+          results.push(term);
+          imported++;
+        } catch (error) {
+          errors.push({ row: i + 1, error: error.message });
+          failed++;
+        }
+      }
+
+      // Обновляем счетчики тем
+      const themes = await Theme.find();
+      for (let theme of themes) {
+        const count = await Term.countDocuments({ theme: theme.name_en });
+        theme.terms_count = count;
+        await theme.save();
+      }
+
+      // Log activity
+      await logActivity(
+        "terms_imported",
+        "import",
+        null,
+        req.admin.username,
+        req
+      );
+
+      res.json({
+        success: true,
+        imported,
+        failed,
+        errors: errors.slice(0, 10), // Return first 10 errors
+        message: `Successfully imported ${imported} terms${
+          failed > 0 ? `, failed: ${failed}` : ""
+        }`,
+      });
+    } catch (error) {
+      console.error("Import error:", error);
       res.status(500).json({ error: error.message });
     }
   }
@@ -1048,7 +1074,6 @@ mongoose
   )
   .then(async () => {
     console.log("✅ MongoDB connected successfully");
-    console.log("⚠️  RATE LIMITING IS DISABLED FOR DEVELOPMENT!");
 
     // Create default admin if not exists
     const adminCount = await Admin.countDocuments();

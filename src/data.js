@@ -428,13 +428,8 @@ export const validateTheme = (theme) => {
 // ========== CSV EXPORT/IMPORT HELPERS ==========
 
 export const exportToCSV = (data, filename = "terms.csv") => {
-  const headers = [
-    "term_kaa",
-    "term_en",
-    "definition_en",
-    "definition_kaa",
-    "theme",
-  ];
+  // Упрощенный экспорт - только 3 поля
+  const headers = ["term_kaa", "term_en", "theme"];
   const csvContent = [
     headers.join(","),
     ...data.map((row) =>

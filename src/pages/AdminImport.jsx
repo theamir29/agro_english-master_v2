@@ -91,9 +91,11 @@ const AdminImport = ({ t, navigate }) => {
     }
   };
 
-  const sampleCSV = `term_kaa,term_en,definition_en,definition_kaa,theme
-"Biydag'ay","Wheat","A cereal grain","Dán ekinleri","Crop Production"
-"Arpa","Barley","A member of grass family","Shóp dakılı","Crop Production"`;
+  const sampleCSV = `term_kaa,term_en,theme
+Biydag'ay,Wheat,Crop Production
+Arpa,Barley,Crop Production
+Mákke,Corn,Crop Production
+Shaly,Rice,Crop Production`;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
