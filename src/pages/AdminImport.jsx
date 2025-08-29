@@ -74,13 +74,17 @@ const AdminImport = ({ t, navigate }) => {
   const handleExportTerms = async () => {
     setIsExporting(true);
     try {
-      const response = await api.getTerms({ limit: 10000 });
+      // ИЗМЕНЕНО: используем limit: 0 для загрузки всех терминов
+      const response = await api.getTerms({ limit: 0 });
       if (response.data && response.data.length > 0) {
         exportToCSV(
           response.data,
           `terms_export_${new Date().toISOString().split("T")[0]}.csv`
         );
-        setToast({ message: "Terms exported successfully", type: "success" });
+        setToast({
+          message: `Exported ${response.data.length} terms successfully`,
+          type: "success",
+        });
       } else {
         setToast({ message: "No terms to export", type: "warning" });
       }

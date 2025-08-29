@@ -46,7 +46,12 @@ api.interceptors.response.use(
 
 export const getTerms = async (params = {}) => {
   try {
-    const response = await api.get("/terms", { params });
+    // ИЗМЕНЕНО: устанавливаем большой лимит по умолчанию
+    const defaultParams = {
+      limit: 1000,
+      ...params,
+    };
+    const response = await api.get("/terms", { params: defaultParams });
     return response.data;
   } catch (error) {
     console.error("Error fetching terms:", error);

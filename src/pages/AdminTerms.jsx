@@ -45,10 +45,12 @@ const AdminTerms = ({ t, navigate }) => {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      // ИЗМЕНЕНО: загружаем все термины с limit: 0
       const [termsResponse, themesResponse] = await Promise.all([
-        api.getTerms(),
+        api.getTerms({ limit: 0 }),
         api.getThemes(),
       ]);
+      console.log("Admin: Loaded terms count:", termsResponse.data?.length); // Для отладки
       setTerms(termsResponse.data || []);
       setThemes(themesResponse || []);
     } catch (error) {

@@ -305,7 +305,7 @@ app.get("/api/terms", async (req, res) => {
   try {
     const {
       page = 1,
-      limit = 50,
+      limit = 1000, // ИЗМЕНЕНО: увеличен лимит по умолчанию
       search = "",
       theme = "all",
       sortBy = "term_kaa",
@@ -327,19 +327,31 @@ app.get("/api/terms", async (req, res) => {
       query.theme = theme;
     }
 
-    // Execute query with pagination
-    const terms = await Term.find(query)
-      .sort({ [sortBy]: order === "asc" ? 1 : -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    // ИЗМЕНЕНО: добавлена проверка на limit
+    const parsedLimit = parseInt(limit);
+    const shouldPaginate = parsedLimit > 0 && parsedLimit < 10000;
+
+    let terms;
+    if (shouldPaginate) {
+      // Execute query with pagination
+      terms = await Term.find(query)
+        .sort({ [sortBy]: order === "asc" ? 1 : -1 })
+        .limit(parsedLimit)
+        .skip((page - 1) * parsedLimit);
+    } else {
+      // Return all terms without pagination if limit is 0
+      terms = await Term.find(query).sort({
+        [sortBy]: order === "asc" ? 1 : -1,
+      });
+    }
 
     const count = await Term.countDocuments(query);
 
     res.json({
       data: terms,
       total: count,
-      currentPage: page,
-      totalPages: Math.ceil(count / limit),
+      currentPage: shouldPaginate ? parseInt(page) : 1,
+      totalPages: shouldPaginate ? Math.ceil(count / parsedLimit) : 1,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

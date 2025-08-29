@@ -60,13 +60,15 @@ const DictionaryPage = ({ navigate, t, isAdmin }) => {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      // ИЗМЕНЕНО: загружаем все термины с limit: 0
       const [termsResponse, themesResponse] = await Promise.all([
-        api.getTerms(),
+        api.getTerms({ limit: 0 }),
         api.getThemes(),
       ]);
+      console.log("Loaded terms count:", termsResponse.data?.length); // Для отладки
       setTerms(termsResponse.data || []);
       setThemes(themesResponse || []);
-      return true; // Возвращаем true для индикации успешной загрузки
+      return true;
     } catch (error) {
       console.error("Error loading data:", error);
       return false;
