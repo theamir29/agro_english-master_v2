@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // ВАЖНО: Используем правильный порт для бэкенда
-const API_URL = "http://localhost:5000/api";
+const API_URL = "https://agrolex.kerek.uz/api";
 
 // Создаем axios instance
 const api = axios.create({
