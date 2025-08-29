@@ -12,6 +12,8 @@ import {
   Grid,
   List,
   BookOpen,
+  Layers,
+  Menu,
 } from "lucide-react";
 import * as api from "../api";
 import { TRANSLATION_DIRECTIONS } from "../data";
@@ -23,12 +25,25 @@ const DictionaryPage = ({ navigate, t, isAdmin }) => {
   const [filteredTerms, setFilteredTerms] = useState([]);
   const [themes, setThemes] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTheme, setSelectedTheme] = useState("all");
+
+  // Инициализируем selectedTheme из URL при первом рендере
+  const [selectedTheme, setSelectedTheme] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const themeFromUrl = urlParams.get("theme");
+    console.log("Theme from URL:", themeFromUrl); // Отладка
+    if (themeFromUrl) {
+      return decodeURIComponent(themeFromUrl);
+    }
+    return "all";
+  });
+
   const [translationDirection, setTranslationDirection] = useState("both");
   const [viewMode, setViewMode] = useState("grid");
   const [sortBy, setSortBy] = useState("term_kaa");
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [favorites, setFavorites] = useLocalStorage("favoriteTerms", []);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTerm, setSelectedTerm] = useState(null);
@@ -37,6 +52,7 @@ const DictionaryPage = ({ navigate, t, isAdmin }) => {
 
   const itemsPerPage = viewMode === "grid" ? 12 : 10;
 
+  // Загружаем данные при монтировании
   useEffect(() => {
     loadData();
   }, []);
@@ -50,8 +66,10 @@ const DictionaryPage = ({ navigate, t, isAdmin }) => {
       ]);
       setTerms(termsResponse.data || []);
       setThemes(themesResponse || []);
+      return true; // Возвращаем true для индикации успешной загрузки
     } catch (error) {
       console.error("Error loading data:", error);
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -64,8 +82,27 @@ const DictionaryPage = ({ navigate, t, isAdmin }) => {
   const filterTerms = () => {
     let filtered = [...terms];
 
+    console.log("Filtering - Selected theme:", selectedTheme);
+    console.log("Filtering - Total terms before filter:", filtered.length);
+
+    // Добавим отладку для проверки структуры данных
+    if (filtered.length > 0) {
+      console.log("Sample term structure:", filtered[0]);
+      console.log("Available themes in terms:", [
+        ...new Set(filtered.map((t) => t.theme)),
+      ]);
+    }
+
     if (selectedTheme !== "all") {
-      filtered = filtered.filter((term) => term.theme === selectedTheme);
+      filtered = filtered.filter((term) => {
+        // Проверяем разные варианты полей
+        const termTheme = term.theme || term.theme_en || term.theme_name;
+        console.log(
+          `Comparing: term theme="${termTheme}" with selected="${selectedTheme}"`
+        );
+        return termTheme === selectedTheme;
+      });
+      console.log("Filtering - Terms after theme filter:", filtered.length);
     }
 
     if (searchTerm) {
@@ -114,6 +151,20 @@ const DictionaryPage = ({ navigate, t, isAdmin }) => {
 
     setFilteredTerms(filtered);
     setCurrentPage(1);
+  };
+
+  const handleThemeSelect = (themeName) => {
+    setSelectedTheme(themeName);
+    setCurrentPage(1);
+    // Обновляем URL
+    if (themeName === "all") {
+      window.history.replaceState({}, "", "/dictionary");
+    } else {
+      const encodedTheme = encodeURIComponent(themeName);
+      window.history.replaceState({}, "", `/dictionary?theme=${encodedTheme}`);
+    }
+    // Закрываем мобильную боковую панель при выборе
+    setMobileSidebarOpen(false);
   };
 
   const totalPages = Math.ceil(filteredTerms.length / itemsPerPage);
@@ -167,6 +218,71 @@ const DictionaryPage = ({ navigate, t, isAdmin }) => {
           {dir.label}
         </button>
       ))}
+    </div>
+  );
+
+  const ThemeSidebar = () => (
+    <div className="bg-white rounded-xl shadow-lg p-4 h-fit sticky top-20">
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold mb-3 flex items-center">
+          <Layers className="mr-2" size={20} />
+          Themes
+        </h3>
+
+        {/* All Terms Button */}
+        <button
+          onClick={() => handleThemeSelect("all")}
+          className={`w-full text-left px-4 py-3 rounded-lg mb-2 transition-all ${
+            selectedTheme === "all"
+              ? "bg-green-600 text-white shadow-md"
+              : "bg-gray-100 hover:bg-gray-200"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="font-medium">All Terms</span>
+            <span className="text-sm">{terms.length}</span>
+          </div>
+        </button>
+
+        <div className="border-t pt-2 mt-2 max-h-[600px] overflow-y-auto space-y-1">
+          {themes.map((theme) => {
+            const termCount = terms.filter(
+              (t) => t.theme === theme.name_en
+            ).length;
+            return (
+              <button
+                key={theme._id}
+                onClick={() => handleThemeSelect(theme.name_en)}
+                className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
+                  selectedTheme === theme.name_en
+                    ? "bg-green-600 text-white shadow-md"
+                    : "bg-gray-50 hover:bg-gray-100"
+                }`}
+              >
+                <div className="font-medium">{theme.name_en}</div>
+                <div
+                  className={`text-sm ${
+                    selectedTheme === theme.name_en
+                      ? "text-green-100"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {theme.name_kaa}
+                </div>
+                <div
+                  className={`text-xs mt-1 ${
+                    selectedTheme === theme.name_en
+                      ? "text-green-200"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {termCount} terms
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 
@@ -282,6 +398,14 @@ const DictionaryPage = ({ navigate, t, isAdmin }) => {
         <div className="container mx-auto px-4 xl:px-8 py-4">
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col lg:flex-row gap-4 items-center mb-4">
+              {/* Mobile menu toggle */}
+              <button
+                onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+                className="lg:hidden self-start p-2 rounded-lg hover:bg-gray-100"
+              >
+                <Menu size={24} />
+              </button>
+
               <div className="flex-1 relative w-full">
                 <Search
                   className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
@@ -317,19 +441,6 @@ const DictionaryPage = ({ navigate, t, isAdmin }) => {
             <div className="hidden lg:flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <TranslationToggle />
-
-                <select
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  value={selectedTheme}
-                  onChange={(e) => setSelectedTheme(e.target.value)}
-                >
-                  <option value="all">{t("dictionary.allThemes")}</option>
-                  {themes.map((theme) => (
-                    <option key={theme._id} value={theme.name_en}>
-                      {theme.name_en} ({theme.terms_count || 0})
-                    </option>
-                  ))}
-                </select>
 
                 <select
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -383,19 +494,6 @@ const DictionaryPage = ({ navigate, t, isAdmin }) => {
 
                 <select
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  value={selectedTheme}
-                  onChange={(e) => setSelectedTheme(e.target.value)}
-                >
-                  <option value="all">{t("dictionary.allThemes")}</option>
-                  {themes.map((theme) => (
-                    <option key={theme._id} value={theme.name_en}>
-                      {theme.name_en}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                 >
@@ -431,66 +529,94 @@ const DictionaryPage = ({ navigate, t, isAdmin }) => {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content with Sidebar */}
       <div className="container mx-auto px-4 xl:px-8 py-8">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl lg:text-3xl font-bold">
-                {selectedTheme === "all"
-                  ? t("dictionary.allThemes")
-                  : selectedTheme}
-              </h2>
-              <p className="text-gray-500 mt-1">
-                {filteredTerms.length} {t("dictionary.termsFound")}
-              </p>
+          <div className="flex gap-6">
+            {/* Desktop Sidebar */}
+            <div className="hidden lg:block w-64 flex-shrink-0">
+              <ThemeSidebar />
             </div>
-          </div>
 
-          {isLoading ? (
-            <Loader text="Loading terms..." />
-          ) : filteredTerms.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-md p-16 text-center">
-              <Search size={64} className="mx-auto text-gray-300 mb-6" />
-              <h3 className="text-2xl font-semibold mb-3">
-                {t("dictionary.noTermsFound")}
-              </h3>
-              <p className="text-gray-600 text-lg mb-6">
-                {t("dictionary.tryAdjusting")}
-              </p>
-              <button
-                onClick={() => {
-                  setSearchTerm("");
-                  setSelectedTheme("all");
-                }}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                {t("dictionary.clearFilters")}
-              </button>
-            </div>
-          ) : (
-            <>
-              <div
-                className={
-                  viewMode === "grid"
-                    ? "grid md:grid-cols-2 xl:grid-cols-3 gap-4"
-                    : "space-y-4"
-                }
-              >
-                {currentTerms.map((term) => (
-                  <TermCard key={term._id} term={term} />
-                ))}
+            {/* Mobile Sidebar Overlay */}
+            {mobileSidebarOpen && (
+              <div className="lg:hidden fixed inset-0 z-50 bg-black bg-opacity-50">
+                <div className="bg-white w-80 h-full overflow-y-auto">
+                  <div className="p-4 border-b flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Select Theme</h3>
+                    <button
+                      onClick={() => setMobileSidebarOpen(false)}
+                      className="p-2 hover:bg-gray-100 rounded-lg"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <div className="p-4">
+                    <ThemeSidebar />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Main Content Area */}
+            <div className="flex-1">
+              <div className="mb-6">
+                <h2 className="text-2xl lg:text-3xl font-bold">
+                  {selectedTheme === "all"
+                    ? t("dictionary.allThemes")
+                    : selectedTheme}
+                </h2>
+                <p className="text-gray-500 mt-1">
+                  {filteredTerms.length} {t("dictionary.termsFound")}
+                </p>
               </div>
 
-              {totalPages > 1 && (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
+              {isLoading ? (
+                <Loader text="Loading terms..." />
+              ) : filteredTerms.length === 0 ? (
+                <div className="bg-white rounded-xl shadow-md p-16 text-center">
+                  <Search size={64} className="mx-auto text-gray-300 mb-6" />
+                  <h3 className="text-2xl font-semibold mb-3">
+                    {t("dictionary.noTermsFound")}
+                  </h3>
+                  <p className="text-gray-600 text-lg mb-6">
+                    {t("dictionary.tryAdjusting")}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setSearchTerm("");
+                      setSelectedTheme("all");
+                    }}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    {t("dictionary.clearFilters")}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div
+                    className={
+                      viewMode === "grid"
+                        ? "grid md:grid-cols-2 xl:grid-cols-2 gap-4"
+                        : "space-y-4"
+                    }
+                  >
+                    {currentTerms.map((term) => (
+                      <TermCard key={term._id} term={term} />
+                    ))}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                    />
+                  )}
+                </>
               )}
-            </>
-          )}
+            </div>
+          </div>
         </div>
       </div>
 

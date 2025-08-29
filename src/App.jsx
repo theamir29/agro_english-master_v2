@@ -92,7 +92,10 @@ const useRouter = () => {
   useEffect(() => {
     const handlePopState = () => {
       setCurrentPath(window.location.pathname);
-      window.scrollTo(0, 0);
+      // Используем setTimeout для скролла после рендера
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+      }, 0);
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -100,9 +103,19 @@ const useRouter = () => {
   }, []);
 
   const navigate = (path) => {
-    window.history.pushState({}, "", path);
-    setCurrentPath(path);
-    window.scrollTo(0, 0);
+    // Разделяем путь и query параметры
+    const [pathname, search] = path.includes("?")
+      ? path.split("?")
+      : [path, ""];
+    const fullPath = search ? `${pathname}?${search}` : pathname;
+
+    window.history.pushState({}, "", fullPath);
+    setCurrentPath(pathname);
+
+    // Добавляем небольшую задержку для скролла после изменения состояния
+    setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 0);
   };
 
   return { currentPath, navigate };

@@ -220,7 +220,11 @@ const HomePage = ({ navigate, t }) => {
                 {themes.map((theme) => (
                   <button
                     key={theme._id}
-                    onClick={() => navigate("/dictionary")}
+                    onClick={() =>
+                      navigate(
+                        `/dictionary?theme=${encodeURIComponent(theme.name_en)}`
+                      )
+                    }
                     className="group bg-white rounded-xl shadow-md p-6 lg:p-8 hover:shadow-2xl transition-all hover:-translate-y-2 text-left"
                   >
                     <h3 className="font-semibold text-xl mb-2">
