@@ -12,6 +12,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { LANGUAGES } from "../data";
+import { Logo } from "../assets";
 
 const Navigation = ({
   currentPath,
@@ -50,7 +51,9 @@ const Navigation = ({
               className="flex items-center space-x-3 cursor-pointer"
               onClick={() => navigate("/")}
             >
-              <span className="text-3xl">🌾</span>
+              <div className="">
+                <img src={Logo} className="w-[40px] rounded-full" alt="" />
+              </div>
               <div>
                 <h1 className="text-xl lg:text-2xl font-bold">AgroLex</h1>
                 <p className="text-xs opacity-75 hidden lg:block">

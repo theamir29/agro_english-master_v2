@@ -1,5 +1,6 @@
 import React from "react";
 import { Globe, Users } from "lucide-react";
+import { Logo } from "../assets";
 
 const Footer = ({ t }) => {
   return (
@@ -9,7 +10,9 @@ const Footer = ({ t }) => {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center space-x-2 mb-4">
-                <span className="text-2xl">🌾</span>
+                <span className="text-2xl">
+                  <img src={Logo} className="w-[40px] rounded-full" alt="" />
+                </span>
                 <h3 className="text-xl font-bold">AgroLex</h3>
               </div>
               <p className="text-gray-400 text-sm">
