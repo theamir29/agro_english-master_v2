@@ -1,10 +1,11 @@
-# AgroLearn - Agricultural Terminology Platform
+# AgroLex - Agricultural Terminology Platform
 
 A comprehensive learning platform for agricultural terminology in Karakalpak and English languages.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js (v14 or higher)
 - MongoDB (local or Atlas)
 - npm or yarn
@@ -12,4 +13,7 @@ A comprehensive learning platform for agricultural terminology in Karakalpak and
 ### Installation
 
 1. **Clone the repository**
+
 ```bash
+
+```

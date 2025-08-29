@@ -10,7 +10,7 @@ const Footer = ({ t }) => {
             <div>
               <div className="flex items-center space-x-2 mb-4">
                 <span className="text-2xl">🌾</span>
-                <h3 className="text-xl font-bold">AgroLearn</h3>
+                <h3 className="text-xl font-bold">AgroLex</h3>
               </div>
               <p className="text-gray-400 text-sm">
                 Comprehensive agricultural terminology platform for students and
@@ -66,7 +66,7 @@ const Footer = ({ t }) => {
             <div>
               <h4 className="font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
-                <li>Email: info@agrolearn.com</li>
+                <li>Email: info@AgroLex.com</li>
                 <li>Phone: +998 90 123 45 67</li>
                 <li>Address: Tashkent, Uzbekistan</li>
               </ul>
@@ -88,7 +88,7 @@ const Footer = ({ t }) => {
           </div>
 
           <div className="border-t border-gray-700 mt-8 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2024 AgroLearn. All rights reserved.</p>
+            <p>&copy; 2024 AgroLex. All rights reserved.</p>
             <p className="mt-2">Developed for Agricultural Education</p>
           </div>
         </div>

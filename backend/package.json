@@ -1,7 +1,7 @@
 {
   "name": "agro-dictionary-backend",
   "version": "1.0.0",
-  "description": "Backend for AgroLearn agricultural terminology platform",
+  "description": "Backend for AgroLex agricultural terminology platform",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

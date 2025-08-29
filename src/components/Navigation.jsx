@@ -52,7 +52,7 @@ const Navigation = ({
             >
               <span className="text-3xl">🌾</span>
               <div>
-                <h1 className="text-xl lg:text-2xl font-bold">AgroLearn</h1>
+                <h1 className="text-xl lg:text-2xl font-bold">AgroLex</h1>
                 <p className="text-xs opacity-75 hidden lg:block">
                   Agricultural Terminology Platform
                 </p>
