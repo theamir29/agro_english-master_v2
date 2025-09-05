@@ -92,7 +92,7 @@ const Footer = ({ t }) => {
 
           <div className="border-t border-gray-700 mt-8 pt-8 text-center text-sm text-gray-400">
             <p>&copy; 2025 AgroLex</p>
-            <p className="mt-1">; All rights reserved.</p>
+            <p className="mt-1"> All rights reserved.</p>
             <p className="mt-2">Developed by iMax IT Company</p>
           </div>
         </div>
