@@ -98,7 +98,7 @@ const AdminLogin = ({ onLogin, t }) => {
 
         <div className="mt-6 text-center text-sm text-gray-600">
           <p>Default credentials:</p>
-          <p className="font-mono mt-1">username: admin | password: admin123</p>
+          <p className="font-mono mt-1"></p>
         </div>
       </div>
     </div>

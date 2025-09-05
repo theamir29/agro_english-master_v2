@@ -69,9 +69,9 @@ const Footer = ({ t }) => {
             <div>
               <h4 className="font-semibold mb-4">Contact</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
-                <li>Email: info@AgroLex.com</li>
-                <li>Phone: +998 90 123 45 67</li>
-                <li>Address: Tashkent, Uzbekistan</li>
+                <li>Email: agrolex@gmail.com</li>
+                <li>Phone: +998 90 591 76 70</li>
+                <li>Address: Nukus, Karakalpakstan</li>
               </ul>
               <div className="flex space-x-3 mt-4">
                 <a
@@ -91,8 +91,8 @@ const Footer = ({ t }) => {
           </div>
 
           <div className="border-t border-gray-700 mt-8 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2024 AgroLex. All rights reserved.</p>
-            <p className="mt-2">Developed for Agricultural Education</p>
+            <p>&copy; 2025 AgroLex. All rights reserved.</p>
+            <p className="mt-2">Developed by iMax IT Company</p>
           </div>
         </div>
       </div>
